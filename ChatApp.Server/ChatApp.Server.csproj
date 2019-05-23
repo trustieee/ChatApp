@@ -15,11 +15,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\ChatApp.Model\ChatApp.Model.csproj" />
-    <ProjectReference Include="..\ChatApp.Utilities\ChatApp.Utilities.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
     <DotNetCliToolReference Include="Microsoft.EntityFrameworkCore.Tools.DotNet" Version=" 2.1.0-preview1-final" />
   </ItemGroup>
 

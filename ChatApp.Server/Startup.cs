@@ -36,27 +36,23 @@ namespace ChatApp.Server
 
     public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
     {
-        public ApplicationDbContext(DbContextOptions options) : base(options) { }
+        public ApplicationDbContext(DbContextOptions options) : base(options)
+        {
+        }
     }
 
     public class Startup
     {
-        private IConfiguration _configuration { get; }
+        private readonly IConfiguration _configuration;
 
-        public Startup(IConfiguration configuration)
-        {
-            _configuration = configuration;
-        }
+        public Startup(IConfiguration configuration) => _configuration = configuration;
 
         public void ConfigureServices(IServiceCollection services)
         {
             services.AddRouting();
             services.AddControllers();
             services.AddHealthChecks();
-            services.AddDbContext<ApplicationDbContext>(options => options.UseSqlServer(builder =>
-            {
-                builder.ConnectionString = _configuration.GetConnectionString("DefaultConnection");
-            }));
+            services.AddDbContext<ApplicationDbContext>(options => options.UseSqlServer(builder => { builder.ConnectionString = _configuration.GetConnectionString("DefaultConnection"); }));
             services.AddIdentity<ApplicationUser, IdentityRole>(setup =>
             {
                 setup.Password.RequireDigit = false;
@@ -67,17 +63,11 @@ namespace ChatApp.Server
                 setup.Password.RequireUppercase = false;
             }).AddEntityFrameworkStores<ApplicationDbContext>();
 
-            services.AddAuthentication(config =>
-            {
-                config.DefaultScheme = CookieAuthenticationDefaults.AuthenticationScheme;
-            }).AddCookie();
+            services.AddAuthentication(config => { config.DefaultScheme = CookieAuthenticationDefaults.AuthenticationScheme; }).AddCookie();
 
             services.AddAuthorization();
 
-            services.AddSignalR(options =>
-            {
-                options.EnableDetailedErrors = true;
-            });
+            services.AddSignalR(options => { options.EnableDetailedErrors = true; });
         }
 
         public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
@@ -97,16 +87,13 @@ namespace ChatApp.Server
     public class ChatHub : Hub
     {
         [Authorize]
-        public async Task SendMessage(string user, string message)
-        {
-            await Clients.All.SendAsync("ReceiveMessage", user, message);
-        }
+        public async Task SendMessage(string user, string message) => await Clients.All.SendAsync("ReceiveMessage", user, message);
     }
 
     public class AccountController : ControllerBase
     {
-        private readonly UserManager<ApplicationUser> _userManager;
         private readonly SignInManager<ApplicationUser> _signInManager;
+        private readonly UserManager<ApplicationUser> _userManager;
 
         public AccountController(UserManager<ApplicationUser> userManager, SignInManager<ApplicationUser> signInManager)
         {
@@ -114,7 +101,8 @@ namespace ChatApp.Server
             _signInManager = signInManager;
         }
 
-        [HttpPost, AllowAnonymous]
+        [HttpPost]
+        [AllowAnonymous]
         public async Task<IActionResult> Login()
         {
             var (headerUserName, headerPassword) = GetAuthLoginInformation(HttpContext);
@@ -129,7 +117,8 @@ namespace ChatApp.Server
             return new OkResult();
         }
 
-        [HttpPost, AllowAnonymous]
+        [HttpPost]
+        [AllowAnonymous]
         public async Task<IActionResult> Register()
         {
             var (headerUserName, headerPassword) = GetAuthLoginInformation(HttpContext);
@@ -140,7 +129,9 @@ namespace ChatApp.Server
                 // if they somehow get here, they're already logged in and are confirmed to be the requested user for registration,
                 //  so just return 200 and let them continue on
                 if (HttpContext.User.Identity.Name == userResult.UserName && HttpContext.User.Identity.IsAuthenticated)
+                {
                     return new OkResult();
+                }
 
                 // user already exists, but someone else (who isn't logged in as that user) is trying to
                 //  create an account with the same name
@@ -149,7 +140,7 @@ namespace ChatApp.Server
 
             var user = new ApplicationUser
             {
-                UserName = headerUserName,
+                UserName = headerUserName
             };
 
             var createResult = await _userManager.CreateAsync(user, headerPassword);
@@ -166,7 +157,8 @@ namespace ChatApp.Server
             return new OkResult();
         }
 
-        [HttpPost, Authorize]
+        [HttpPost]
+        [Authorize]
         public async Task<IActionResult> Logout()
         {
             await _signInManager.SignOutAsync();
@@ -174,26 +166,16 @@ namespace ChatApp.Server
             return new OkResult();
         }
 
-        [HttpGet, Authorize]
-        public IEnumerable<UserDTO> Users()
-        {
-            return _userManager.Users.Select(ApplicationUser.Projection);
-        }
+        [HttpGet]
+        [Authorize]
+        public IEnumerable<UserDTO> Users() => _userManager.Users.Select(ApplicationUser.Projection);
 
         private static (string, string) GetAuthLoginInformation(HttpContext context)
         {
             var authHeader = context.Request.Headers["Authorization"].First().Substring("Basic ".Length).Trim();
-            Encoding encoding = Encoding.GetEncoding("iso-8859-1");
+            var encoding = Encoding.GetEncoding("iso-8859-1");
             var split = encoding.GetString(Convert.FromBase64String(authHeader)).Split(':');
             return (split[0], split[1]);
-        }
-
-        private static (string, string, string) GetAuthRegistrationInformation(HttpContext context)
-        {
-            var authHeader = context.Request.Headers["Authorization"].First().Substring("Basic ".Length).Trim();
-            Encoding encoding = Encoding.GetEncoding("iso-8859-1");
-            var split = encoding.GetString(Convert.FromBase64String(authHeader)).Split(':');
-            return (split[0], split[1], split[2]);
         }
     }
 }
