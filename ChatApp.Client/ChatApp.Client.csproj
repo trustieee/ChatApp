@@ -10,11 +10,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\ChatApp.Model\ChatApp.Model.csproj" />
-    <ProjectReference Include="..\ChatApp.Utilities\ChatApp.Utilities.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
     <Reference Include="Microsoft.Extensions.Identity.Stores">
       <HintPath>..\..\..\..\..\..\Program Files\dotnet\packs\Microsoft.AspNetCore.App.Ref\3.0.0-preview5-19227-01\ref\netcoreapp3.0\Microsoft.Extensions.Identity.Stores.dll</HintPath>
     </Reference>

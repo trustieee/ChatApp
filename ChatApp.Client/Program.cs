@@ -4,59 +4,57 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Threading.Tasks;
-using ChatApp.Model;
 using Microsoft.AspNetCore.SignalR.Client;
 
 namespace ChatApp.Client
 {
-    class Program
+    internal class Program
     {
-        static HubConnection HubConnection;
-        static readonly HttpClient Client;
-        static readonly Uri BaseAddress;
-        static readonly HttpMessageHandler Handler;
-        static readonly CookieContainer Container;
+        private static HubConnection _hubConnection;
+        private static readonly HttpClient _client;
+        private static readonly Uri _baseAddress;
+        private static readonly CookieContainer _container;
 
         static Program()
         {
-            BaseAddress = new Uri("https://localhost:5001");
-            Handler = new HttpClientHandler
+            _baseAddress = new Uri("https://localhost:5001");
+            HttpMessageHandler handler = new HttpClientHandler
             {
-                CookieContainer = Container ?? (Container = new CookieContainer())
+                CookieContainer = _container ??= new CookieContainer()
             };
-            Client = new HttpClient(Handler) { BaseAddress = BaseAddress };
+            _client = new HttpClient(handler) {BaseAddress = _baseAddress};
         }
 
-        static async Task Main(string[] args)
+        private static async Task Main()
         {
-            const string passwordPrompt = "Password: ";
-
-            var user = new User
-            {
-                Password = string.Empty
-            };
+            const string PasswordPrompt = "Password: ";
+            string userName, password = string.Empty;
 
             while (true)
             {
                 Console.Write("Username: ");
-                string userName = Console.ReadLine();
-                if (!string.IsNullOrWhiteSpace(userName))
+                var userNameInput = Console.ReadLine();
+                if (!string.IsNullOrWhiteSpace(userNameInput))
                 {
-                    user.UserName = userName;
+                    userName = userNameInput;
                     break;
                 }
 
                 Console.Clear();
             }
 
-            Console.Write(passwordPrompt);
-            StringBuilder passBuilder = new StringBuilder();
+            Console.Write(PasswordPrompt);
+            var passBuilder = new StringBuilder();
             while (true)
             {
-                ConsoleKeyInfo keyInfo = Console.ReadKey(true);
+                var keyInfo = Console.ReadKey(true);
                 if (keyInfo.Key == ConsoleKey.Backspace)
                 {
-                    if (Console.CursorLeft <= passwordPrompt.Length) break;
+                    if (Console.CursorLeft <= PasswordPrompt.Length)
+                    {
+                        break;
+                    }
+
                     passBuilder.Remove(passBuilder.Length - 1, 1);
                     Console.Write("\b \b");
                 }
@@ -65,10 +63,11 @@ namespace ChatApp.Client
                     if (passBuilder.Length <= 0)
                     {
                         Console.WriteLine("\nmissing password...");
-                        Console.SetCursorPosition(passwordPrompt.Length, 1);
+                        Console.SetCursorPosition(PasswordPrompt.Length, 1);
                         continue;
                     }
-                    user.Password = passBuilder.ToString();
+
+                    password = passBuilder.ToString();
                     break;
                 }
                 else
@@ -81,15 +80,15 @@ namespace ChatApp.Client
             Console.Clear();
             Console.WriteLine("Logging in...");
 
-            var request = new HttpRequestMessage(HttpMethod.Post, new Uri(BaseAddress, "account/login"));
-            Encoding encoding = Encoding.GetEncoding("iso-8859-1");
-            Client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", Convert.ToBase64String(encoding.GetBytes($"{user.UserName}:{user.Password}")));
-            var response = await Client.SendAsync(request);
+            var request = new HttpRequestMessage(HttpMethod.Post, new Uri(_baseAddress, "account/login"));
+            var encoding = Encoding.GetEncoding("iso-8859-1");
+            _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", Convert.ToBase64String(encoding.GetBytes($"{userName}:{password}")));
+            var response = await _client.SendAsync(request);
             if (!response.IsSuccessStatusCode)
             {
                 Console.WriteLine("Failed to login. Attempting registration with same credentials...");
-                request = new HttpRequestMessage(HttpMethod.Post, new Uri(BaseAddress, "account/register"));
-                response = await Client.SendAsync(request);
+                request = new HttpRequestMessage(HttpMethod.Post, new Uri(_baseAddress, "account/register"));
+                response = await _client.SendAsync(request);
                 response.EnsureSuccessStatusCode();
                 Console.WriteLine("Account registered.");
             }
@@ -97,24 +96,18 @@ namespace ChatApp.Client
             Console.WriteLine("Logged in.");
             Console.WriteLine("Connecting to chat room...");
 
-            HubConnection = new HubConnectionBuilder()
-                 .WithUrl(new Uri(BaseAddress, "chat"), options =>
-                 {
-                     options.Cookies = Container;
-                 })
-                 .Build();
+            _hubConnection = new HubConnectionBuilder()
+                .WithUrl(new Uri(_baseAddress, "chat"), options => { options.Cookies = _container; })
+                .Build();
 
-            HubConnection.On<string, string>("ReceiveMessage", (user, message) =>
-            {
-                Console.WriteLine("Foo");
-            });
+            _hubConnection.On<string, string>("ReceiveMessage", (user, message) => { Console.WriteLine("Foo"); });
 
-            await HubConnection.StartAsync();
+            await _hubConnection.StartAsync();
 
             Console.WriteLine("Connected. Press any key to send a message and receive a response.");
             Console.ReadKey();
 
-            await HubConnection.InvokeAsync("SendMessage", "foo", "bar");
+            await _hubConnection.InvokeAsync("SendMessage", "foo", "bar");
             Console.ReadKey();
         }
     }
