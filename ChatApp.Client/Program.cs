@@ -3,7 +3,9 @@ using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
+using ChatApp.Core;
 using Microsoft.AspNetCore.SignalR.Client;
 
 namespace ChatApp.Client
@@ -14,6 +16,7 @@ namespace ChatApp.Client
         private static readonly HttpClient _client;
         private static readonly Uri _baseAddress;
         private static readonly CookieContainer _container;
+        private static readonly ManualResetEvent _resetEvent;
 
         static Program()
         {
@@ -23,6 +26,7 @@ namespace ChatApp.Client
                 CookieContainer = _container ??= new CookieContainer()
             };
             _client = new HttpClient(handler) {BaseAddress = _baseAddress};
+            _resetEvent = new ManualResetEvent(false);
         }
 
         private static async Task Main()
@@ -100,15 +104,31 @@ namespace ChatApp.Client
                 .WithUrl(new Uri(_baseAddress, "chat"), options => { options.Cookies = _container; })
                 .Build();
 
-            _hubConnection.On<string, string>("ReceiveMessage", (user, message) => { Console.WriteLine("Foo"); });
+            _hubConnection.On(HubMessages.Methods.Connected, (string message) => Console.WriteLine(message));
+            _hubConnection.On(HubMessages.Methods.Disconnected, (string message) => Console.WriteLine(message));
 
             await _hubConnection.StartAsync();
 
-            Console.WriteLine("Connected. Press any key to send a message and receive a response.");
-            Console.ReadKey();
+            Console.WriteLine("Connected");
+            DisplayMenu();
 
-            await _hubConnection.InvokeAsync("SendMessage", "foo", "bar");
-            Console.ReadKey();
+            Console.CancelKeyPress += async (s, e) =>
+            {
+                e.Cancel = true;
+                Console.WriteLine("Closing ChatApp...");
+                await _hubConnection.StopAsync();
+                await _hubConnection.DisposeAsync();
+                _client.Dispose();
+                _resetEvent.Set();
+            };
+
+            _resetEvent.WaitOne();
+            Console.WriteLine("Thank you for using ChatApp!");
+            await Task.Delay(TimeSpan.FromSeconds(2));
+        }
+
+        private static void DisplayMenu()
+        {
         }
     }
 }
