@@ -5,6 +5,7 @@ using System.Net.Http.Headers;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using ChatApp.Core;
 using Microsoft.AspNetCore.SignalR.Client;
 
 namespace ChatApp.Client
@@ -102,6 +103,9 @@ namespace ChatApp.Client
             _hubConnection = new HubConnectionBuilder()
                 .WithUrl(new Uri(_baseAddress, "chat"), options => { options.Cookies = _container; })
                 .Build();
+
+            _hubConnection.On(HubMessages.Methods.Connected, (string message) => Console.WriteLine(message));
+            _hubConnection.On(HubMessages.Methods.Disconnected, (string message) => Console.WriteLine(message));
 
             await _hubConnection.StartAsync();
 
