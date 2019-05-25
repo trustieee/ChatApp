@@ -23,6 +23,6 @@ namespace ChatApp.Server.Hubs
         }
 
         [Authorize]
-        public async Task SendMessage(string user, string message) => await Clients.All.SendAsync("ReceiveMessage", user, message);
+        public async Task SendMessage(string message) => await Clients.All.SendAsync(HubMessages.Methods.ReceiveMessage, HubMessages.Notifications.MessageClients(Context.User.Identity.Name, message));
     }
 }

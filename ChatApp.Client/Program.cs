@@ -16,7 +16,7 @@ namespace ChatApp.Client
         private static readonly HttpClient _client;
         private static readonly Uri _baseAddress;
         private static readonly CookieContainer _container;
-        private static readonly ManualResetEvent _resetEvent;
+        private static readonly ManualResetEventSlim _resetEvent;
 
         static Program()
         {
@@ -26,75 +26,89 @@ namespace ChatApp.Client
                 CookieContainer = _container ??= new CookieContainer()
             };
             _client = new HttpClient(handler) {BaseAddress = _baseAddress};
-            _resetEvent = new ManualResetEvent(false);
+            _resetEvent = new ManualResetEventSlim(false);
         }
 
         private static async Task Main()
         {
             const string PasswordPrompt = "Password: ";
-            string userName, password = string.Empty;
+            var password = string.Empty;
 
             while (true)
             {
-                Console.Write("Username: ");
-                var userNameInput = Console.ReadLine();
-                if (!string.IsNullOrWhiteSpace(userNameInput))
+                try
                 {
-                    userName = userNameInput;
-                    break;
-                }
-
-                Console.Clear();
-            }
-
-            Console.Write(PasswordPrompt);
-            var passBuilder = new StringBuilder();
-            while (true)
-            {
-                var keyInfo = Console.ReadKey(true);
-                if (keyInfo.Key == ConsoleKey.Backspace)
-                {
-                    if (Console.CursorLeft <= PasswordPrompt.Length)
+                    string userName;
+                    while (true)
                     {
-                        break;
+                        Console.Write("Username: ");
+                        var userNameInput = Console.ReadLine();
+                        if (!string.IsNullOrWhiteSpace(userNameInput))
+                        {
+                            userName = userNameInput;
+                            break;
+                        }
+
+                        Console.Clear();
                     }
 
-                    passBuilder.Remove(passBuilder.Length - 1, 1);
-                    Console.Write("\b \b");
-                }
-                else if (keyInfo.Key == ConsoleKey.Enter)
-                {
-                    if (passBuilder.Length <= 0)
+                    Console.Write(PasswordPrompt);
+                    var passBuilder = new StringBuilder();
+                    while (true)
                     {
-                        Console.WriteLine("\nmissing password...");
-                        Console.SetCursorPosition(PasswordPrompt.Length, 1);
-                        continue;
+                        var keyInfo = Console.ReadKey(true);
+                        if (keyInfo.Key == ConsoleKey.Backspace)
+                        {
+                            if (Console.CursorLeft <= PasswordPrompt.Length)
+                            {
+                                break;
+                            }
+
+                            passBuilder.Remove(passBuilder.Length - 1, 1);
+                            Console.Write("\b \b");
+                        }
+                        else if (keyInfo.Key == ConsoleKey.Enter)
+                        {
+                            if (passBuilder.Length <= 0)
+                            {
+                                Console.WriteLine("\nmissing password...");
+                                Console.SetCursorPosition(PasswordPrompt.Length, 1);
+                                continue;
+                            }
+
+                            password = passBuilder.ToString();
+                            break;
+                        }
+                        else
+                        {
+                            Console.Write('*');
+                            passBuilder.Append(keyInfo.KeyChar);
+                        }
                     }
 
-                    password = passBuilder.ToString();
+                    Console.Clear();
+                    Console.WriteLine("Logging in...");
+
+                    var request = new HttpRequestMessage(HttpMethod.Post, new Uri(_baseAddress, "account/login"));
+                    var encoding = Encoding.GetEncoding("iso-8859-1");
+                    _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", Convert.ToBase64String(encoding.GetBytes($"{userName}:{password}")));
+                    var response = await _client.SendAsync(request);
+                    if (!response.IsSuccessStatusCode)
+                    {
+                        Console.WriteLine("Failed to login. Attempting registration with same credentials...");
+                        request = new HttpRequestMessage(HttpMethod.Post, new Uri(_baseAddress, "account/register"));
+                        response = await _client.SendAsync(request);
+                        response.EnsureSuccessStatusCode();
+                        Console.WriteLine("Account registered.");
+                    }
+
                     break;
                 }
-                else
+                catch (HttpRequestException)
                 {
-                    Console.Write('*');
-                    passBuilder.Append(keyInfo.KeyChar);
+                    Console.WriteLine("Failed to connect to server. It may not be running. Please try again.");
+                    await Task.Delay(TimeSpan.FromSeconds(2));
                 }
-            }
-
-            Console.Clear();
-            Console.WriteLine("Logging in...");
-
-            var request = new HttpRequestMessage(HttpMethod.Post, new Uri(_baseAddress, "account/login"));
-            var encoding = Encoding.GetEncoding("iso-8859-1");
-            _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", Convert.ToBase64String(encoding.GetBytes($"{userName}:{password}")));
-            var response = await _client.SendAsync(request);
-            if (!response.IsSuccessStatusCode)
-            {
-                Console.WriteLine("Failed to login. Attempting registration with same credentials...");
-                request = new HttpRequestMessage(HttpMethod.Post, new Uri(_baseAddress, "account/register"));
-                response = await _client.SendAsync(request);
-                response.EnsureSuccessStatusCode();
-                Console.WriteLine("Account registered.");
             }
 
             Console.WriteLine("Logged in.");
@@ -106,6 +120,7 @@ namespace ChatApp.Client
 
             _hubConnection.On(HubMessages.Methods.Connected, (string message) => Console.WriteLine(message));
             _hubConnection.On(HubMessages.Methods.Disconnected, (string message) => Console.WriteLine(message));
+            _hubConnection.On(HubMessages.Methods.ReceiveMessage, (string message) => Console.WriteLine(message));
 
             await _hubConnection.StartAsync();
 
@@ -119,12 +134,26 @@ namespace ChatApp.Client
                 await _hubConnection.StopAsync();
                 await _hubConnection.DisposeAsync();
                 _client.Dispose();
-                _resetEvent.Set();
+                Console.WriteLine("Thank you for using ChatApp!");
+                await Task.Delay(TimeSpan.FromSeconds(2));
+                Environment.Exit(0);
             };
 
-            _resetEvent.WaitOne();
-            Console.WriteLine("Thank you for using ChatApp!");
-            await Task.Delay(TimeSpan.FromSeconds(2));
+            while (true)
+            {
+                try
+                {
+                    var input = Console.ReadLine();
+                    if (!string.IsNullOrWhiteSpace(input))
+                    {
+                        await _hubConnection.InvokeAsync(HubMessages.Methods.SendMessage, input);
+                    }
+                }
+                catch (Exception ex) when (ex is NullReferenceException || ex is ObjectDisposedException)
+                {
+                    // ignore
+                }
+            }
         }
 
         private static void DisplayMenu()
