@@ -1,8 +1,10 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using ChatApp.Core;
@@ -25,7 +27,7 @@ namespace ChatApp.Client
             {
                 CookieContainer = _container ??= new CookieContainer()
             };
-            _client = new HttpClient(handler) {BaseAddress = _baseAddress};
+            _client = new HttpClient(handler) { BaseAddress = _baseAddress };
             _resetEvent = new ManualResetEventSlim(false);
         }
 
@@ -125,39 +127,72 @@ namespace ChatApp.Client
             await _hubConnection.StartAsync();
 
             Console.WriteLine("Connected");
-            DisplayMenu();
 
             Console.CancelKeyPress += async (s, e) =>
             {
                 e.Cancel = true;
-                Console.WriteLine("Closing ChatApp...");
-                await _hubConnection.StopAsync();
-                await _hubConnection.DisposeAsync();
-                _client.Dispose();
-                Console.WriteLine("Thank you for using ChatApp!");
-                await Task.Delay(TimeSpan.FromSeconds(2));
-                Environment.Exit(0);
+                await CloseAsync();
             };
 
             while (true)
             {
-                try
+                var input = Console.ReadLine();
+                if (string.IsNullOrWhiteSpace(input)) continue;
+
+                foreach (var command in ClientInputManager.Process(input))
                 {
-                    var input = Console.ReadLine();
-                    if (!string.IsNullOrWhiteSpace(input))
+                    switch (command)
                     {
-                        await _hubConnection.InvokeAsync(HubMessages.Methods.SendMessage, input);
+                        case ClientInputManager.InputCommand.Exit:
+                            await CloseAsync();
+                            break;
+                        default:
+                            Console.WriteLine("Unrecognized client command");
+                            break;
                     }
                 }
-                catch (Exception ex) when (ex is NullReferenceException || ex is ObjectDisposedException)
-                {
-                    // ignore
-                }
+
+                await _hubConnection.InvokeAsync(HubMessages.Methods.SendMessage, input);
             }
         }
 
-        private static void DisplayMenu()
+        private static async Task CloseAsync()
         {
+            Console.WriteLine("Closing ChatApp...");
+            await _hubConnection.StopAsync();
+            await _hubConnection.DisposeAsync();
+            _client.Dispose();
+            Console.WriteLine("Thank you for using ChatApp!");
+            await Task.Delay(TimeSpan.FromSeconds(2));
+            Environment.Exit(0);
+        }
+    }
+
+    public static class ClientInputManager
+    {
+        public enum InputCommand
+        {
+            Exit
+        }
+
+        private static readonly Dictionary<string, InputCommand> _possibleClientActions = new Dictionary<string, InputCommand>
+        {
+            { "/exit", InputCommand.Exit }
+        };
+
+        private static readonly Regex _clientCommandRegex = new Regex(@"(\/\S*)", RegexOptions.Compiled);
+
+        public static IEnumerable<InputCommand> Process(string input)
+        {
+            MatchCollection matches;
+            if ((matches = _clientCommandRegex.Matches(input)).Count <= 0) yield break;
+
+            foreach (Match match in matches)
+            {
+                if (!_possibleClientActions.TryGetValue(match.Value, out var command)) continue;
+
+                yield return command;
+            }
         }
     }
 }
