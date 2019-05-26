@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IdentityModel.Tokens.Jwt;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -9,6 +10,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.IdentityModel.Tokens;
 
 namespace ChatApp.Server.Controllers
 {
@@ -36,7 +38,10 @@ namespace ChatApp.Server.Controllers
                 return Unauthorized();
             }
 
-            return new OkResult();
+            var signingKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes("SuperTopSecretKeyThatYouDoNotGiveOutEver!"));
+            var signingCredentials = new SigningCredentials(signingKey, SecurityAlgorithms.HmacSha256);
+            var jwt = new JwtSecurityToken(signingCredentials: signingCredentials);
+            return Ok(new JwtSecurityTokenHandler().WriteToken(jwt));
         }
 
         [HttpPost]
