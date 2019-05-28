@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
@@ -15,6 +16,7 @@ namespace ChatApp.Client
         private static HubConnection _hubConnection;
         private static readonly HttpClient _client;
         private static readonly Uri _baseAddress;
+        private static string _token;
 
         static Program()
         {
@@ -85,16 +87,9 @@ namespace ChatApp.Client
                     var request = new HttpRequestMessage(HttpMethod.Post, new Uri(_baseAddress, "account/login"));
                     var encoding = Encoding.GetEncoding("iso-8859-1");
                     _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", Convert.ToBase64String(encoding.GetBytes($"{userName}:{password}")));
-                    HttpResponseMessage response = null;
-                    try
-                    {
-                        response = await _client.SendAsync(request);
-                    }
-                    catch (Exception ex)
-                    {
-                        Console.WriteLine(ex);
-                    }
-                    
+                    var response = await _client.SendAsync(request);
+                    _token = await response.Content.ReadAsStringAsync();
+
                     if (!response.IsSuccessStatusCode)
                     {
                         Console.WriteLine("Failed to login. Attempting registration with same credentials...");
@@ -117,7 +112,8 @@ namespace ChatApp.Client
             Console.WriteLine("Connecting to chat room...");
 
             _hubConnection = new HubConnectionBuilder()
-                .WithUrl(new Uri(_baseAddress, "chat"), options => { options.AccessTokenProvider = () => Task.FromResult("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.e30.Qv9aul8t7MKJowPkQSpHEbK17t0BA9gsi4Xt5flcpGA"); })
+                .WithUrl(new Uri(_baseAddress, "chat"),
+                    options => { options.AccessTokenProvider = () => Task.FromResult(_token); })
                 .Build();
 
             _hubConnection.On(HubMessages.Methods.Connected, (string message) => Console.WriteLine(message));

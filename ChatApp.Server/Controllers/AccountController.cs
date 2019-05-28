@@ -10,6 +10,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
 
 namespace ChatApp.Server.Controllers
@@ -17,12 +18,14 @@ namespace ChatApp.Server.Controllers
     public class AccountController : ControllerBase
     {
         private readonly SignInManager<ApplicationUser> _signInManager;
+        private readonly IConfiguration _configuration;
         private readonly UserManager<ApplicationUser> _userManager;
 
-        public AccountController(UserManager<ApplicationUser> userManager, SignInManager<ApplicationUser> signInManager)
+        public AccountController(UserManager<ApplicationUser> userManager, SignInManager<ApplicationUser> signInManager, IConfiguration configuration)
         {
             _userManager = userManager;
             _signInManager = signInManager;
+            _configuration = configuration;
         }
 
         [HttpPost]
@@ -31,7 +34,6 @@ namespace ChatApp.Server.Controllers
         {
             var (headerUserName, headerPassword) = GetAuthLoginInformation(HttpContext);
 
-            // sign user in
             var signInResult = await _signInManager.PasswordSignInAsync(headerUserName, headerPassword, false, false);
             if (!signInResult.Succeeded)
             {
@@ -41,7 +43,9 @@ namespace ChatApp.Server.Controllers
             var signingKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes("SuperTopSecretKeyThatYouDoNotGiveOutEver!"));
             var signingCredentials = new SigningCredentials(signingKey, SecurityAlgorithms.HmacSha256);
             var jwt = new JwtSecurityToken(signingCredentials: signingCredentials);
-            return Ok(new JwtSecurityTokenHandler().WriteToken(jwt));
+            var handler = new JwtSecurityTokenHandler();
+            var token = handler.WriteToken(jwt);
+            return new OkObjectResult(token);
         }
 
         [HttpPost]

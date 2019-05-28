@@ -1,4 +1,4 @@
-using System;
+using System.Security.Claims;
 using System.Text;
 using System.Threading.Tasks;
 using ChatApp.Server.DbContexts;
@@ -12,6 +12,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.Net.Http.Headers;
 
 namespace ChatApp.Server
 {
@@ -48,27 +49,24 @@ namespace ChatApp.Server
                     options.SaveToken = true;
                     options.TokenValidationParameters = new TokenValidationParameters
                     {
-                        //ValidIssuer = _configuration["Jwt:Issuer"],
-                        //ValidAudience = _configuration["Jwt:Audience"],
+                        ValidIssuer = _configuration["Jwt:Issuer"],
+                        ValidAudience = _configuration["Jwt:Audience"],
                         ValidateIssuer = false,
-                        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["Jwt:Key"])),
                         ValidateAudience = false,
-                        ValidateLifetime = false,
-                        ValidateIssuerSigningKey = true
+                        ValidateIssuerSigningKey = false,
+                        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["Jwt:Key"])),
+                        ValidateLifetime = false
                     };
 
                     options.Events = new JwtBearerEvents
                     {
                         OnMessageReceived = context =>
                         {
-                            var accessToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.e30.Qv9aul8t7MKJowPkQSpHEbK17t0BA9gsi4Xt5flcpGA";
-
-                            // If the request is for our hub...
                             var path = context.HttpContext.Request.Path;
-                            if (!string.IsNullOrEmpty(accessToken) &&
-                                path.StartsWithSegments("/chat"))
+                            if (!path.StartsWithSegments("/chat")) return Task.CompletedTask;
+                            var accessToken = context.Request.Headers[HeaderNames.Authorization];
+                            if (!string.IsNullOrWhiteSpace(accessToken) && context.Scheme.Name == JwtBearerDefaults.AuthenticationScheme)
                             {
-                                // Read the token out of the query string
                                 context.Token = accessToken;
                             }
 
@@ -77,7 +75,14 @@ namespace ChatApp.Server
                     };
                 });
 
-            services.AddAuthorization();
+            services.AddAuthorization(options =>
+            {
+                options.AddPolicy(JwtBearerDefaults.AuthenticationScheme, policy =>
+                {
+                    policy.AddAuthenticationSchemes(JwtBearerDefaults.AuthenticationScheme);
+                    policy.RequireClaim(ClaimTypes.NameIdentifier);
+                });
+            });
 
             services.AddSignalR(options => { options.EnableDetailedErrors = true; });
         }
@@ -91,8 +96,8 @@ namespace ChatApp.Server
             {
                 options.MapHealthChecks("/health");
                 options.MapControllerRoute("default", "{controller=Home}/{action=Index}/{id?}");
-                options.MapHub<ChatHub>("/chat");
             });
+            app.UseSignalR(options => { options.MapHub<ChatHub>("/chat"); });
         }
     }
 }
