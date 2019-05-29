@@ -2,3 +2,23 @@
 
 # ChatApp
 A multi-user authenticated chat app using asp core 3 + signalr
+
+## Requirements
+* [Visual Studio 2019 Preview](https://visualstudio.microsoft.com/vs/preview/)
+* [Dotnet SDK 3.0.100-preview5-011568](https://dotnet.microsoft.com/download/dotnet-core/3.0)
+
+## Run
+```
+git clone https://github.com/mariocatch/ChatApp.git ChatApp
+cd ./ChatApp/ChatApp.Server
+dotnet ef database update
+cd ../
+dotnet run -p ./ChatApp.Server/ChatApp.Server.csproj
+dotnet run -p ./ChatApp.Client/ChatApp.Client.csproj # run this 'n' times for each client you want
+```
+or
+```
+build-and-stage.bat
+start-server.bat
+start-client.bat # run this 'n' times for each client you want
+```
