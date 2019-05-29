@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IdentityModel.Tokens.Jwt;
 using System.Linq;
+using System.Security.Claims;
 using System.Text;
 using System.Threading.Tasks;
 using ChatApp.Server.Models;
@@ -17,8 +18,9 @@ namespace ChatApp.Server.Controllers
 {
     public class AccountController : ControllerBase
     {
-        private readonly SignInManager<ApplicationUser> _signInManager;
         private readonly IConfiguration _configuration;
+        private readonly JwtSecurityTokenHandler _jwtTokenHandler = new JwtSecurityTokenHandler();
+        private readonly SignInManager<ApplicationUser> _signInManager;
         private readonly UserManager<ApplicationUser> _userManager;
 
         public AccountController(UserManager<ApplicationUser> userManager, SignInManager<ApplicationUser> signInManager, IConfiguration configuration)
@@ -40,12 +42,11 @@ namespace ChatApp.Server.Controllers
                 return Unauthorized();
             }
 
-            var signingKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes("SuperTopSecretKeyThatYouDoNotGiveOutEver!"));
-            var signingCredentials = new SigningCredentials(signingKey, SecurityAlgorithms.HmacSha256);
-            var jwt = new JwtSecurityToken(signingCredentials: signingCredentials);
-            var handler = new JwtSecurityTokenHandler();
-            var token = handler.WriteToken(jwt);
-            return new OkObjectResult(token);
+            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]));
+            var claims = new[] { new Claim(ClaimTypes.NameIdentifier, headerUserName), new Claim(ClaimTypes.Name, headerUserName) };
+            var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+            var token = new JwtSecurityToken(claims: claims, signingCredentials: credentials);
+            return new OkObjectResult(_jwtTokenHandler.WriteToken(token));
         }
 
         [HttpPost]
@@ -85,7 +86,11 @@ namespace ChatApp.Server.Controllers
 
             // sign the user in after creation
             await _signInManager.SignInAsync(user, false);
-            return new OkResult();
+            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]));
+            var claims = new[] { new Claim(ClaimTypes.NameIdentifier, headerUserName), new Claim(ClaimTypes.Name, headerUserName) };
+            var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+            var token = new JwtSecurityToken(claims: claims, signingCredentials: credentials);
+            return new OkObjectResult(_jwtTokenHandler.WriteToken(token));
         }
 
         [HttpPost]
