@@ -18,6 +18,8 @@ dotnet run -p ./ChatApp.Client/ChatApp.Client.csproj # run this 'n' times for ea
 ```
 or
 ```
+git clone https://github.com/mariocatch/ChatApp.git ChatApp
+cd ./ChatApp
 build-and-stage.bat
 start-server.bat
 start-client.bat # run this 'n' times for each client you want
