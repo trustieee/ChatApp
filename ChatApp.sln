@@ -7,7 +7,7 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ChatApp.Client", "ChatApp.C
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ChatApp.Server", "ChatApp.Server\ChatApp.Server.csproj", "{7CE64A26-0D82-412F-AB19-97E75CE985FD}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ChatApp.Core", "ChatApp.Core\ChatApp.Core.csproj", "{282EE7F3-3F96-4258-8365-F3F04881849F}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ChatApp.Core", "ChatApp.Core\ChatApp.Core.csproj", "{282EE7F3-3F96-4258-8365-F3F04881849F}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

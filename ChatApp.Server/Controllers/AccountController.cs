@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.IdentityModel.Tokens.Jwt;
 using System.Linq;
+using System.Security.Claims;
 using System.Text;
 using System.Threading.Tasks;
 using ChatApp.Server.Models;
@@ -9,18 +11,23 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Configuration;
+using Microsoft.IdentityModel.Tokens;
 
 namespace ChatApp.Server.Controllers
 {
     public class AccountController : ControllerBase
     {
+        private readonly IConfiguration _configuration;
+        private readonly JwtSecurityTokenHandler _jwtTokenHandler = new JwtSecurityTokenHandler();
         private readonly SignInManager<ApplicationUser> _signInManager;
         private readonly UserManager<ApplicationUser> _userManager;
 
-        public AccountController(UserManager<ApplicationUser> userManager, SignInManager<ApplicationUser> signInManager)
+        public AccountController(UserManager<ApplicationUser> userManager, SignInManager<ApplicationUser> signInManager, IConfiguration configuration)
         {
             _userManager = userManager;
             _signInManager = signInManager;
+            _configuration = configuration;
         }
 
         [HttpPost]
@@ -29,14 +36,17 @@ namespace ChatApp.Server.Controllers
         {
             var (headerUserName, headerPassword) = GetAuthLoginInformation(HttpContext);
 
-            // sign user in
             var signInResult = await _signInManager.PasswordSignInAsync(headerUserName, headerPassword, false, false);
             if (!signInResult.Succeeded)
             {
                 return Unauthorized();
             }
 
-            return new OkResult();
+            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]));
+            var claims = new[] { new Claim(ClaimTypes.NameIdentifier, headerUserName), new Claim(ClaimTypes.Name, headerUserName) };
+            var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+            var token = new JwtSecurityToken(claims: claims, signingCredentials: credentials);
+            return new OkObjectResult(_jwtTokenHandler.WriteToken(token));
         }
 
         [HttpPost]
@@ -76,7 +86,11 @@ namespace ChatApp.Server.Controllers
 
             // sign the user in after creation
             await _signInManager.SignInAsync(user, false);
-            return new OkResult();
+            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]));
+            var claims = new[] { new Claim(ClaimTypes.NameIdentifier, headerUserName), new Claim(ClaimTypes.Name, headerUserName) };
+            var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+            var token = new JwtSecurityToken(claims: claims, signingCredentials: credentials);
+            return new OkObjectResult(_jwtTokenHandler.WriteToken(token));
         }
 
         [HttpPost]
