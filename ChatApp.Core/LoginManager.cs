@@ -12,6 +12,8 @@ namespace ChatApp.Core
         internal readonly HttpClient HttpClient;
         internal string ConnectionToken;
 
+        public string User { get; private set; }
+
         public LoginManager(string baseAddress)
         {
             BaseAddress = new Uri(baseAddress);
@@ -46,6 +48,7 @@ namespace ChatApp.Core
 
             if (string.IsNullOrWhiteSpace(ConnectionToken)) throw new InvalidOperationException("Token missing from authentication response.");
 
+            User = user;
             Console.WriteLine("Logged in.");
         }
     }

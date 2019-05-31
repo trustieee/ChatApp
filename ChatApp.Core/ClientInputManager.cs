@@ -32,27 +32,9 @@ namespace ChatApp.Core
             }
         }
 
-        public static string GetInput(string prompt = null)
+        public static string GetInput(string prompt = null, bool hidden = false)
         {
-            while (true)
-            {
-                if (!string.IsNullOrEmpty(prompt))
-                {
-                    Console.Write(prompt);
-                }
-
-                var userNameInput = Console.ReadLine();
-                if (!string.IsNullOrWhiteSpace(userNameInput))
-                {
-                    return userNameInput;
-                }
-
-                Console.Clear();
-            }
-        }
-
-        public static string GetHiddenInput(string prompt = null)
-        {
+            Console.WriteLine();
             var inputBuilder = new StringBuilder();
             if (!string.IsNullOrEmpty(prompt))
             {
@@ -66,7 +48,7 @@ namespace ChatApp.Core
                 {
                     if (Console.CursorLeft <= prompt?.Length)
                     {
-                        break;
+                        continue;
                     }
 
                     inputBuilder.Remove(inputBuilder.Length - 1, 1);
@@ -76,12 +58,6 @@ namespace ChatApp.Core
                 {
                     if (inputBuilder.Length <= 0)
                     {
-                        Console.WriteLine("\nmissing password...");
-                        if (!string.IsNullOrEmpty(prompt))
-                        {
-                            Console.SetCursorPosition(prompt.Length, 1);
-                        }
-
                         continue;
                     }
 
@@ -89,7 +65,7 @@ namespace ChatApp.Core
                 }
                 else
                 {
-                    Console.Write('*');
+                    Console.Write(hidden ? '*' : keyInfo.KeyChar);
                     inputBuilder.Append(keyInfo.KeyChar);
                 }
             }

@@ -34,7 +34,13 @@ namespace ChatApp.Core
             {
                 _hubConnection.On(HubMessages.HubMethod.Connected.GetHubMethodName(), (string message) => Console.WriteLine(message));
                 _hubConnection.On(HubMessages.HubMethod.Disconnected.GetHubMethodName(), (string message) => Console.WriteLine(message));
-                _hubConnection.On(HubMessages.HubMethod.ReceiveMessage.GetHubMethodName(), (string message) => Console.WriteLine(message));
+                _hubConnection.On(HubMessages.HubMethod.ReceiveMessage.GetHubMethodName(), (string message) =>
+                {
+                    if (!message.Substring(0, message.IndexOf(':')).Equals(_loginManager.User, StringComparison.OrdinalIgnoreCase))
+                    {
+                        Console.WriteLine(message);
+                    }
+                });
             }
 
             await _hubConnection.StartAsync();
