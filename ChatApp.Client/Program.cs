@@ -17,7 +17,7 @@ namespace ChatApp.Client
                 try
                 {
                     var user = ClientInputManager.GetInput("Username: ");
-                    var pass = ClientInputManager.GetHiddenInput("Password: ");
+                    var pass = ClientInputManager.GetInput("Password: ", true);
 
                     Console.Clear();
                     await loginManager.AuthenticateAsync(user, pass);
@@ -41,7 +41,7 @@ namespace ChatApp.Client
 
             while (true)
             {
-                var input = Console.ReadLine();
+                var input = ClientInputManager.GetInput();
                 if (string.IsNullOrWhiteSpace(input)) continue;
 
                 foreach (var command in ClientInputManager.Process(input))
